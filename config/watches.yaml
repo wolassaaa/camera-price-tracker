@@ -1,0 +1,37 @@
+# Add one public product page per watch. The collector fetches only these URLs
+# at the configured source interval and never bypasses login, CAPTCHA, or WAF.
+# Example:
+# watches:
+#   - product_id: sony-a7v
+#     platform: sony_cn
+#     shop_name: Sony 中国官方商城
+#     url: https://public-product-page.example/sony-a7v
+#     adapter: jsonld
+watches:
+  # Public, no-login Hong Kong comparison page. The Price.com.hk adapter records
+  # merchant-level 行貨/水貨 classification and original HKD prices.
+  - product_id: sony-a1m2
+    platform: price_com_hk
+    shop_name: Price.com.hk
+    url: https://www.price.com.hk/product.php?p=645553
+    adapter: price_com_hk
+  - product_id: canon-r5m2
+    platform: canon_cn
+    shop_name: 佳能官方线上商城
+    url: https://shop.canon.com.cn/prodetails?product_id=3416
+    adapter: canon_cn
+  - product_id: sony-a1m2
+    platform: sony_hk
+    shop_name: Sony Hong Kong
+    url: https://www.sony.com.hk/zh/electronics/interchangeable-lens-cameras/ilce-1m2
+    adapter: sony_hk
+  - product_id: canon-r5m2
+    platform: canon_hk
+    shop_name: Canon Hong Kong
+    url: https://hk.canon/en/pro-imaging/eos-r5-mark-ii/body/product
+    adapter: canon_hk
+  - product_id: canon-r5m2
+    platform: canon_hk_store
+    shop_name: Canon Hong Kong Online Store
+    url: https://store.hk.canon/en/products/eos-r5-mark-ii
+    adapter: canon_hk_store

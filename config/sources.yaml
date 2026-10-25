@@ -1,0 +1,10 @@
+sources:
+  price_com_hk: {enabled: true, interval_minutes: 30, jitter_seconds: 90}
+  sony_cn: {enabled: true, interval_minutes: 60, jitter_seconds: 120}
+  canon_cn: {enabled: true, interval_minutes: 60, jitter_seconds: 120}
+  sony_hk: {enabled: true, interval_minutes: 60, jitter_seconds: 120}
+  canon_hk: {enabled: true, interval_minutes: 60, jitter_seconds: 120}
+  canon_hk_store: {enabled: true, interval_minutes: 60, jitter_seconds: 120}
+  jd: {enabled: true, interval_minutes: 30, jitter_seconds: 120}
+  jd_account_visible: {enabled: true, interval_minutes: 60, jitter_seconds: 180, browser_only: true}
+  tmall: {enabled: false, interval_minutes: 45, jitter_seconds: 120, manual_confirmation_required: true}

@@ -1,0 +1,5 @@
+# Target prices are CNY reference prices. WEBHOOK_URL is intentionally stored
+# only in .env, never in this file.
+targets:
+  - product_id: canon-r5m2
+    target_price_cny: 30000

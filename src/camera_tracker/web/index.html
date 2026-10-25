@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>相机价格监控</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101217; color: #eef1f7; }
+      body { max-width: 1080px; margin: 0 auto; padding: clamp(16px, 3vw, 24px); overflow-x: hidden; }
+      .card { background: #191d27; border: 1px solid #31394a; border-radius: 12px; padding: 18px; margin: 16px 0; }
+      .muted { color: #aab4c6; } .pill { color: #8cffb0; }
+      select { background: #101217; color: #eef1f7; border: 1px solid #31394a; padding: 8px; border-radius: 6px; }
+      #chart { width: 100%; min-height: 180px; }
+      #overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+      .quote-card { background: #191d27; border: 1px solid #31394a; border-radius: 10px; padding: 14px; }
+      .quote-card p { margin: 6px 0 0; }
+      #sources { display: grid; gap: 10px; }
+      .source-summary, .source-merchant { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .source-group { border: 1px solid #31394a; border-radius: 9px; padding: 10px 12px; }
+      .source-group summary { cursor: pointer; font-weight: 700; }
+      .source-merchant { padding: 8px 0 0; margin-top: 8px; border-top: 1px solid #31394a; font-size: .92rem; }
+      .source-warning { color: #fbbf24; }
+      input, button, textarea { max-width: 100%; box-sizing: border-box; background: #101217; color: #eef1f7; border: 1px solid #31394a; padding: 8px; border-radius: 6px; }
+      button { cursor: pointer; background: #2563eb; border-color: #2563eb; }
+      textarea { width: 100%; min-height: 130px; box-sizing: border-box; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { text-align: left; padding: 7px; border-bottom: 1px solid #31394a; }
+      #source-settings { display: grid; gap: 10px; }
+      .source-setting { display: grid; grid-template-columns: minmax(110px, 1fr) repeat(3, max-content); align-items: center; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid #31394a; }
+      .source-setting label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+      .source-setting input[type="number"] { width: 82px; }
+      #metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+      .metric-card { display: block; min-width: 0; }
+      @media (max-width: 640px) {
+        .card { padding: 14px; }
+        .source-setting { grid-template-columns: 1fr 1fr; }
+        .source-setting > strong { grid-column: 1 / -1; }
+        .source-setting input[type="number"] { width: 100%; }
+        table { display: block; overflow-x: auto; white-space: nowrap; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>相机价格监控</h1>
+    <p class="muted">本地服务已启动。趋势、预测与购买评分均使用人民币参考价；缺少数据时不会生成虚假趋势。</p>
+    <section id="overview" aria-label="产品总览"></section>
+    <section class="card"><h2>数据源状态</h2><div id="sources"><p class="muted">正在加载来源状态…</p></div></section>
+    <section class="card"><h2>采集频率设置</h2><p class="muted">为尊重来源访问限制，间隔最低 5 分钟。保存后重启 Worker 生效。</p><form id="source-form"><div id="source-settings"></div><button type="submit">保存来源设置</button></form><p id="source-status" class="muted"></p></section>
+    <section class="card"><h2>大陆 / 香港比较</h2><div id="comparison" class="muted">选择产品后加载可信新机报价…</div></section>
+    <section class="card"><h2>可信价格指标</h2><div id="metrics" class="muted">选择产品后加载指标…</div></section>
+    <section class="card"><h2>账户可见券后价</h2><div id="account-price" class="muted">选择产品后加载…</div></section>
+    <section class="card"><h2>促销与产品事件</h2><div id="events" class="muted">选择产品后加载事件…</div></section>
+    <section class="card"><h2>二手 Sony α1 市场</h2><form id="used-form"><label>最高预算 <input id="used-price" type="number" min="1" placeholder="人民币"></label> <label>最高快门数 <input id="used-shutter" type="number" min="0" placeholder="例如 10000"></label> <button type="submit">筛选</button></form><p id="used-summary" class="muted"></p><div id="used-list"></div></section>
+    <section class="card"><h2>目标价设置</h2><p class="muted">保存后重启 Worker 以加载新目标价。</p><form id="target-form"><label>产品 <select id="target-product"></select></label> <label>人民币目标价 <input id="target-price" type="number" min="1" step="1" required></label> <button type="submit">保存目标价</button></form><p id="target-status" class="muted"></p></section>
+    <section class="card"><h2>购买地区偏好</h2><form id="preference-form"><label>优先购买地区 <select id="purchase-region"><option value="cn">中国大陆</option><option value="hk">香港</option></select></label> <button type="submit">保存偏好</button></form><p id="preference-status" class="muted"></p></section>
+    <section class="card"><h2>通知测试</h2><p class="muted">向 `.env` 中已经配置的渠道发送一条测试消息，不会生成价格记录。</p><button id="notification-test" type="button">发送测试通知</button><p id="notification-status" class="muted"></p></section>
+    <section class="card"><h2>监控产品设置</h2><p class="muted">新增产品后，还需在 <code>config/watches.yaml</code> 为公开商品链接配置采集来源。</p><form id="product-form"><label>ID <input id="new-product-id" pattern="[a-z0-9-]+" placeholder="sigma-50-150" required></label> <label>名称 <input id="new-product-name" placeholder="Sigma 50-150mm F2" required></label> <label>类型 <select id="new-product-type"><option value="lens">镜头</option><option value="body">机身</option></select></label> <label>别名（逗号分隔）<input id="new-product-aliases" placeholder="Sigma 50-150 F2"></label> <button type="submit">保存产品</button></form><p id="product-status" class="muted"></p></section>
+    <section class="card"><h2>公开监控链接</h2><p class="muted">仅接受明确的 HTTPS 公开商品页；系统不会处理登录、验证码或 Cookie。</p><form id="watch-form"><label>产品 <select id="watch-product"></select></label> <label>来源 <select id="watch-platform"></select></label> <label>店铺 <input id="watch-shop" required></label> <label>链接 <input id="watch-url" type="url" placeholder="https://…" required></label> <label>适配器 <select id="watch-adapter"><option>jsonld</option><option>price_com_hk</option><option>canon_cn</option><option>sony_hk</option><option>canon_hk</option><option>canon_hk_store</option></select></label> <button type="submit">保存监控链接</button></form><p id="watch-status" class="muted"></p></section>
+    <section class="card"><h2>手动报价导入</h2><p class="muted">用于登录墙、验证码或人工确认平台；仅导入你自行取得的报价，不上传账号或 Cookie。</p><form id="csv-form"><textarea id="csv-content" required placeholder="product_id,platform,shop_name,url,price,condition,market_variant,warranty_type,bundle_type,shutter_count&#10;sony-a1,goofish,个人卖家,https://example.test/a1,9500,used,cn,none,body_only,12345"></textarea><button type="submit">导入 CSV</button></form><p id="csv-status" class="muted"></p></section>
+    <section class="card"><h2>事件记录</h2><p class="muted">添加已确认的发布、预售、促销、官方调价或清仓事件；可附公开来源链接。</p><form id="event-form"><label>产品 <select id="event-product"></select></label> <label>类型 <select id="event-type"><option value="promotion">促销</option><option value="release">发布</option><option value="preorder">预售</option><option value="official_price">官方定价</option><option value="clearance">清仓</option><option value="price_change">调价</option></select></label> <label>日期 <input id="event-date" type="date" required></label> <label>标题 <input id="event-title" required></label> <label>来源 <input id="event-url" type="url" placeholder="https://…"></label> <button type="submit">保存事件</button></form><p id="event-status" class="muted"></p></section>
+    <section class="card"><strong class="pill">服务状态正常</strong><p><label>监控产品 <select id="products"></select></label> <label>市场分段 <select id="market-segment"><option value="best">最佳可用分段</option><option value="cn">大陆新机</option><option value="hk_authorized">香港行货</option><option value="hk_grey">香港水货</option><option value="used">二手</option></select></label> <label>历史范围 <select id="history-window"><option value="24h">24 小时</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="90d">90 天</option><option value="180d">180 天</option><option value="all" selected>全部历史</option></select></label></p><svg id="chart" viewBox="0 0 800 220" role="img" aria-label="价格趋势图"></svg><p id="summary" class="muted">正在加载产品配置…</p><p id="insight" class="muted"></p></section>
+    <script>
+      const select = document.querySelector('#products');
+      const historyWindow = document.querySelector('#history-window');
+      const marketSegment = document.querySelector('#market-segment');
+      const chart = document.querySelector('#chart');
+      const summary = document.querySelector('#summary');
+      const overview = document.querySelector('#overview');
+      const sources = document.querySelector('#sources');
+      const insight = document.querySelector('#insight');
+      const targetProduct = document.querySelector('#target-product');
+      const targetPrice = document.querySelector('#target-price');
+      const targetStatus = document.querySelector('#target-status');
+      const comparison = document.querySelector('#comparison');
+      const metrics = document.querySelector('#metrics');
+      const accountPrice = document.querySelector('#account-price');
+      const usedPrice = document.querySelector('#used-price');
+      const usedShutter = document.querySelector('#used-shutter');
+      const usedSummary = document.querySelector('#used-summary');
+      const usedList = document.querySelector('#used-list');
+      const productStatus = document.querySelector('#product-status');
+      const sourceSettings = document.querySelector('#source-settings');
+      const sourceStatus = document.querySelector('#source-status');
+      const watchProduct = document.querySelector('#watch-product');
+      const watchPlatform = document.querySelector('#watch-platform');
+      const watchStatus = document.querySelector('#watch-status');
+      const csvStatus = document.querySelector('#csv-status');
+      const eventProduct = document.querySelector('#event-product');
+      const events = document.querySelector('#events');
+      const eventStatus = document.querySelector('#event-status');
+      const purchaseRegion = document.querySelector('#purchase-region');
+      const preferenceStatus = document.querySelector('#preference-status');
+      const notificationStatus = document.querySelector('#notification-status');
+      const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      async function drawOverview() {
+        const rows = await fetch('/api/overview').then(r => r.json());
+        overview.innerHTML = rows.length ? rows.map(row => `<article class="quote-card"><strong>${row.product_id}</strong><p>当前 ${row.currency} ${row.current_price}</p><p class="muted">${row.platform} · ${row.history_points} 个历史点</p></article>`).join('') : '<p class="muted">尚无已采集报价。</p>';
+        return rows;
+      }
+      function groupSourceRows(rows) {
+        const groups = new Map();
+        rows.forEach(row => {
+          const separator = row.source_id.indexOf(':');
+          const platform = separator === -1 ? row.source_id : row.source_id.slice(0, separator);
+          const merchant = separator === -1 ? '' : row.source_id.slice(separator + 1);
+          const group = groups.get(platform) || { platform, root: null, merchants: [] };
+          if (merchant) group.merchants.push({...row, merchant}); else group.root = row;
+          groups.set(platform, group);
+        });
+        return Array.from(groups.values());
+      }
+      function sourceState(row) {
+        if (!row) return '尚未成功';
+        return `连续失败 ${row.consecutive_failures} 次 · ${row.last_success_at || '尚未成功'}${row.manual_attention_required ? ' · 需要人工处理' : ''}`;
+      }
+      async function drawSources() {
+        const rows = await fetch('/api/sources').then(r => r.json());
+        sources.innerHTML = rows.length ? groupSourceRows(rows).map(group => {
+          const merchants = group.merchants.map(row => `<div class="source-merchant"><strong>${escapeHtml(row.merchant)}</strong><span class="${row.manual_attention_required ? 'source-warning' : 'muted'}">${escapeHtml(sourceState(row))}</span></div>`).join('');
+          const summary = `<div class="source-summary"><strong>${escapeHtml(group.platform)}</strong><span class="${group.root?.manual_attention_required ? 'source-warning' : 'muted'}">${escapeHtml(group.root ? sourceState(group.root) : `${group.merchants.length} 个商户来源`)}</span></div>`;
+          return group.merchants.length ? `<details class="source-group" ${group.root?.manual_attention_required ? 'open' : ''}><summary>${summary}</summary>${merchants}</details>` : `<div class="source-group">${summary}</div>`;
+        }).join('') : '<p class="muted">尚无来源运行记录。</p>';
+      }
+      async function drawHistory(productId) {
+        const eventRows = await drawEvents(productId);
+        await drawMetrics(productId);
+        await drawAccountPrice(productId);
+        const points = await fetch(`/api/products/${productId}/history?window=${encodeURIComponent(historyWindow.value)}&segment=${encodeURIComponent(marketSegment.value)}`).then(r => r.json());
+        if (!points.length) { chart.innerHTML = ''; summary.textContent = '尚无价格记录。采集或手动导入报价后会在这里显示走势。'; insight.textContent = ''; comparison.textContent = '尚无可信报价可比较。'; return; }
+        const values = points.map(p => Number(p.final_price)); const low = Math.min(...values); const high = Math.max(...values);
+        const range = high - low || 1;
+        const coords = points.map((point, i) => ({x: 20 + i * 760 / Math.max(1, points.length - 1), y: 200 - (Number(point.final_price) - low) * 170 / range}));
+        const polyline = coords.map(point => `${point.x},${point.y}`).join(' ');
+        const lowIndex = values.indexOf(low); const lowPoint = coords[lowIndex];
+        const firstAt = new Date(points[0].captured_at).getTime(); const lastAt = new Date(points[points.length - 1].captured_at).getTime();
+        const eventMarks = lastAt > firstAt ? eventRows.map(event => ({...event, at: new Date(`${event.date}T00:00:00Z`).getTime()})).filter(event => event.at >= firstAt && event.at <= lastAt).map(event => {
+          const x = 20 + (event.at - firstAt) * 760 / (lastAt - firstAt);
+          return `<line x1="${x}" y1="20" x2="${x}" y2="200" stroke="#fbbf24" stroke-dasharray="4 3"/><text x="${x + 3}" y="32" fill="#fbbf24" font-size="11">${escapeHtml(event.type)}</text>`;
+        }).join('') : '';
+        chart.innerHTML = `<line x1="20" y1="200" x2="780" y2="200" stroke="#64748b"/>${eventMarks}<polyline points="${polyline}" fill="none" stroke="#60a5fa" stroke-width="3"/><circle cx="${lowPoint.x}" cy="${lowPoint.y}" r="4" fill="#8cffb0"/><text x="${lowPoint.x + 6}" y="${lowPoint.y - 6}" fill="#8cffb0" font-size="11">历史低</text>`;
+        summary.textContent = `${points.length} 个价格点（人民币参考价）；最低 ¥${low.toFixed(2)}，最高 ¥${high.toFixed(2)}。`;
+        const [forecast, recommendation, markets] = await Promise.all([
+          fetch(`/api/products/${productId}/forecast?segment=${encodeURIComponent(marketSegment.value)}`).then(r => r.json()),
+          fetch(`/api/products/${productId}/recommendation?segment=${encodeURIComponent(marketSegment.value)}`).then(r => r.json()),
+          fetch(`/api/products/${productId}/comparison`).then(r => r.json()),
+        ]);
+        const month = forecast['30'];
+        const forecastText = month.available
+          ? `30 天预测：¥${Number(month.lower_bound).toFixed(0)}–¥${Number(month.upper_bound).toFixed(0)}，${month.trend}（${month.confidence} 置信度，${month.model_name} / 滚动 MAE ${month.backtest_mae ?? '—'}，未来更佳窗口概率 ${Math.round((month.better_buy_window_probability || 0) * 100)}%${month.promotion_events.length ? `，含 ${month.promotion_events.join('/')}` : ''}）`
+          : `30 天预测不可用：${month.reason}`;
+        insight.textContent = `${forecastText}。购买建议：${recommendation.label}（${recommendation.score} 分）— ${recommendation.reason}`;
+        const segment = (name, label) => markets[name]
+          ? `${label}：${markets[name].currency} ${markets[name].final_price}（参考 ¥${markets[name].reference_cny || markets[name].final_price}，${markets[name].warranty_type}）`
+          : '';
+        const rows = [segment('cn', '大陆'), segment('hk_authorized', '香港行货'), segment('hk_grey', '香港水货')].filter(Boolean);
+        const spread = markets.spread ? `；价差 ¥${markets.spread.difference_cny}，${markets.spread.cheaper_market} 更低` : '';
+        comparison.textContent = rows.length ? `${rows.join('；')}${spread}` : '尚无可比较的可信新机报价。';
+      }
+      async function drawEvents(productId) {
+        const rows = await fetch(`/api/products/${productId}/events`).then(r => r.json());
+        events.innerHTML = rows.length ? rows.map(row => `<p><strong>${escapeHtml(row.date)}</strong> · ${escapeHtml(row.type)} · ${row.url ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noreferrer">${escapeHtml(row.title)}</a>` : escapeHtml(row.title)}</p>`).join('') : '暂无已确认的促销或发布事件。';
+        return rows;
+      }
+      async function drawMetrics(productId) {
+        const data = await fetch(`/api/products/${productId}/metrics`).then(r => r.json());
+        const labels = {
+          official_trusted_low_cny: '官方可信低价', authorized_trusted_low_cny: '授权渠道低价',
+          market_trusted_low_cny: '全市场可信低价', market_median_cny: '市场中位价',
+          used_median_cny: '二手中位价', hk_authorized_low_cny: '香港行货低价', hk_grey_low_cny: '香港水货低价',
+        };
+        metrics.innerHTML = Object.entries(labels).map(([key, label]) => data[key] ? `<span class="quote-card metric-card"><strong>${label}</strong><br>¥${escapeHtml(data[key])}</span>` : '').join('') || '尚无足够可信报价。';
+      }
+      async function drawAccountPrice(productId) {
+        const data = await fetch(`/api/products/${productId}/account-price`).then(r => r.json());
+        accountPrice.innerHTML = data.available
+          ? `<strong class="pill">¥${escapeHtml(data.final_price)}</strong><p class="muted">${escapeHtml(data.promotion_evidence || '页面明确显示的券后价')} · ${escapeHtml(data.captured_at)}</p>`
+          : `<span class="source-warning">${escapeHtml(data.reason || '券后价不可得')}</span>`;
+      }
+      async function drawUsed() {
+        const query = new URLSearchParams();
+        if (usedPrice.value) query.set('max_price_cny', usedPrice.value);
+        if (usedShutter.value) query.set('max_shutter_count', usedShutter.value);
+        const data = await fetch(`/api/used/sony-a1?${query}`).then(r => r.json());
+        usedSummary.textContent = data.summary.count ? `共 ${data.summary.count} 条；最低 ¥${data.summary.lowest_cny}，中位 ¥${data.summary.median_cny}。` : '没有符合条件的可信二手报价。';
+        usedList.innerHTML = data.quotes.length ? `<table><thead><tr><th>渠道</th><th>价格</th><th>快门</th><th>成色</th><th>包装 / 保修</th></tr></thead><tbody>${data.quotes.map(q => `<tr><td><a href="${escapeHtml(q.url)}" target="_blank" rel="noreferrer">${escapeHtml(q.shop_name)}</a></td><td>¥${escapeHtml(q.price_cny)}</td><td>${escapeHtml(q.shutter_count || '未知')}</td><td>${escapeHtml(q.cosmetic_grade || '未知')}</td><td>${escapeHtml(q.packaging_status || '未知')} / ${escapeHtml(q.warranty_remaining_days ?? '未知')} 天</td></tr>`).join('')}</tbody></table>` : '';
+      }
+      async function init() {
+        const products = await fetch('/api/products').then(r => r.json());
+        products.forEach(p => {
+          select.add(new Option(p.name, p.id));
+          targetProduct.add(new Option(p.name, p.id));
+          watchProduct.add(new Option(p.name, p.id));
+          eventProduct.add(new Option(p.name, p.id));
+        });
+        const settings = await fetch('/api/settings').then(r => r.json());
+        purchaseRegion.value = settings.preferences.user_purchase_region;
+        const targets = Object.fromEntries(settings.targets.map(item => [item.product_id, item.target_price_cny]));
+        sourceSettings.innerHTML = Object.entries(settings.sources).map(([id, value]) => `<div class="source-setting"><strong>${escapeHtml(id)}</strong><label>启用 <input data-source="${escapeHtml(id)}" data-key="enabled" type="checkbox" ${value.enabled ? 'checked' : ''}></label><label>分钟 <input data-source="${escapeHtml(id)}" data-key="interval_minutes" type="number" min="5" max="1440" value="${escapeHtml(value.interval_minutes)}"></label><label>抖动秒数 <input data-source="${escapeHtml(id)}" data-key="jitter_seconds" type="number" min="0" max="600" value="${escapeHtml(value.jitter_seconds || 0)}"></label></div>`).join('');
+        Object.keys(settings.sources).forEach(id => watchPlatform.add(new Option(id, id)));
+        document.querySelector('#watch-adapter').insertAdjacentHTML('beforeend', '<option>jd</option><option>browser_jd</option>');
+        const showTarget = () => { targetPrice.value = targets[targetProduct.value] || ''; };
+        targetProduct.addEventListener('change', showTarget); showTarget();
+        document.querySelector('#used-form').addEventListener('submit', event => { event.preventDefault(); drawUsed(); });
+        document.querySelector('#target-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const response = await fetch('/api/settings/targets', {
+            method: 'PUT', headers: {'content-type': 'application/json'},
+            body: JSON.stringify([{product_id: targetProduct.value, target_price_cny: targetPrice.value}]),
+          });
+          if (!response.ok) { targetStatus.textContent = '保存失败，请检查产品和价格。'; return; }
+          targets[targetProduct.value] = targetPrice.value;
+          targetStatus.textContent = '目标价已保存；请重启 Worker 后生效。';
+        });
+        document.querySelector('#preference-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const response = await fetch('/api/settings/preferences', {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({user_purchase_region: purchaseRegion.value})});
+          preferenceStatus.textContent = response.ok ? '购买地区偏好已保存。' : '保存失败。';
+          if (select.value) drawHistory(select.value);
+        });
+        document.querySelector('#notification-test').addEventListener('click', async () => {
+          const response = await fetch('/api/notifications/test', {method: 'POST'});
+          const result = await response.json();
+          notificationStatus.textContent = response.ok ? `测试通知已发送：${result.delivered.join(', ')}` : `发送失败：${result.detail || '未配置渠道'}`;
+        });
+        document.querySelector('#product-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const id = document.querySelector('#new-product-id').value.trim();
+          const aliases = document.querySelector('#new-product-aliases').value.split(',').map(value => value.trim()).filter(Boolean);
+          const response = await fetch(`/api/settings/products/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: {'content-type': 'application/json'},
+            body: JSON.stringify({id, name: document.querySelector('#new-product-name').value.trim(), type: document.querySelector('#new-product-type').value, aliases}),
+          });
+          if (!response.ok) { productStatus.textContent = '保存失败：请检查 ID、名称和别名是否冲突。'; return; }
+          const saved = (await response.json()).product;
+          if (!Array.from(select.options).some(option => option.value === saved.id)) {
+            select.add(new Option(saved.name, saved.id));
+            targetProduct.add(new Option(saved.name, saved.id));
+            watchProduct.add(new Option(saved.name, saved.id));
+            eventProduct.add(new Option(saved.name, saved.id));
+          }
+          productStatus.textContent = `已保存 ${saved.name}；配置公开商品链接并重启 Worker 后开始采集。`;
+        });
+        document.querySelector('#source-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const changes = {};
+          sourceSettings.querySelectorAll('[data-source]').forEach(field => {
+            const source = field.dataset.source; const key = field.dataset.key;
+            changes[source] ||= {};
+            changes[source][key] = key === 'enabled' ? field.checked : Number(field.value);
+          });
+          const response = await fetch('/api/settings/sources', {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify(changes)});
+          sourceStatus.textContent = response.ok ? '来源设置已保存；请重启 Worker 后生效。' : '保存失败，请检查采集频率范围。';
+        });
+        document.querySelector('#watch-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const response = await fetch('/api/settings/watches', {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({
+            product_id: watchProduct.value, platform: watchPlatform.value,
+            shop_name: document.querySelector('#watch-shop').value.trim(), url: document.querySelector('#watch-url').value.trim(),
+            adapter: document.querySelector('#watch-adapter').value,
+          })});
+          watchStatus.textContent = response.ok ? '公开链接已保存；请重启 Worker 后开始采集。' : '保存失败：仅支持已配置来源、HTTPS 链接和兼容适配器。';
+        });
+        document.querySelector('#csv-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const response = await fetch('/api/import/csv', {method: 'POST', headers: {'content-type': 'text/plain'}, body: document.querySelector('#csv-content').value});
+          const result = await response.json();
+          csvStatus.textContent = response.ok ? `已导入 ${result.imported} 条报价。` : `导入失败：${result.detail || '请检查 CSV 列名和数值。'}`;
+          if (response.ok) { await drawOverview(); if (select.value) drawHistory(select.value); }
+        });
+        document.querySelector('#event-form').addEventListener('submit', async event => {
+          event.preventDefault();
+          const title = document.querySelector('#event-title').value.trim();
+          const productId = eventProduct.value;
+          const eventId = `${productId}-${document.querySelector('#event-type').value}-${document.querySelector('#event-date').value}`.replace(/[^a-z0-9-]/g, '-');
+          const response = await fetch(`/api/settings/events/${encodeURIComponent(eventId)}`, {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({
+            product_id: productId, type: document.querySelector('#event-type').value, date: document.querySelector('#event-date').value,
+            title, url: document.querySelector('#event-url').value.trim(),
+          })});
+          if (!response.ok) { eventStatus.textContent = '保存失败：请检查日期、标题和 HTTPS 来源链接。'; return; }
+          eventStatus.textContent = '事件已保存。';
+          if (select.value === productId) drawEvents(productId);
+        });
+        const overviewRows = await drawOverview();
+        if (overviewRows.length) select.value = overviewRows[0].product_id;
+        await drawSources();
+        await drawUsed();
+        select.addEventListener('change', () => drawHistory(select.value));
+        historyWindow.addEventListener('change', () => drawHistory(select.value));
+        marketSegment.addEventListener('change', () => drawHistory(select.value));
+        if (select.value) drawHistory(select.value);
+      }
+      init().catch(() => { summary.textContent = '无法加载本地 API，请检查服务日志。'; });
+    </script>
+  </body>
+</html>

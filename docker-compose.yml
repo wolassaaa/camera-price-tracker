@@ -1,0 +1,20 @@
+name: camera-price-tracker
+
+services:
+  camera-price-tracker:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+  camera-price-worker:
+    build: .
+    command: ["python", "-m", "camera_tracker.worker"]
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped

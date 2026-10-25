@@ -1,0 +1,3 @@
+snapshot_retention_days: 30
+market_spread_threshold_cny: 500
+user_purchase_region: cn

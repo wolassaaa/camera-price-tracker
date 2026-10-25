@@ -1,0 +1,25 @@
+lenses:
+  - id: sony-fe-16-35-gm2
+    name: Sony FE 16-35mm F2.8 GM II
+    type: lens
+    aliases: [SEL1635GM2, Sony 16-35 GM II]
+  - id: sony-fe-24-70-gm2
+    name: Sony FE 24-70mm F2.8 GM II
+    type: lens
+    aliases: [SEL2470GM2, Sony 24-70 GM II]
+  - id: sony-fe-70-200-gm2
+    name: Sony FE 70-200mm F2.8 GM OSS II
+    type: lens
+    aliases: [SEL70200GM2, Sony 70-200 GM II]
+  - id: canon-rf-15-35-l
+    name: Canon RF 15-35mm F2.8 L IS USM
+    type: lens
+    aliases: [RF15-35L, Canon RF 15-35]
+  - id: canon-rf-24-70-l
+    name: Canon RF 24-70mm F2.8 L IS USM
+    type: lens
+    aliases: [RF24-70L, Canon RF 24-70]
+  - id: canon-rf-70-200-l
+    name: Canon RF 70-200mm F2.8 L IS USM
+    type: lens
+    aliases: [RF70-200L, Canon RF 70-200]

@@ -1,0 +1,29 @@
+products:
+  - id: sony-a7v
+    name: Sony α7 V
+    type: body
+    aliases: [Sony A7V, A7M5, ILCE-7M5, a7m5]
+  - id: sony-a7r6
+    name: Sony α7R VI
+    type: body
+    aliases: [Sony A7R6, A7R6, ILCE-7RM6]
+  - id: sony-a1m2
+    name: Sony α1 II
+    type: body
+    aliases: [Sony A1M2, A1M2, ILCE-1M2]
+  - id: sony-a1
+    name: Sony α1
+    type: body
+    aliases: [Sony A1, ILCE-1]
+  - id: canon-r5m2
+    name: Canon EOS R5 Mark II
+    type: body
+    aliases: [Canon R5M2, R5 Mark II, EOS R5 Mark II]
+  - id: sony-a1m3
+    name: Sony α1 III
+    type: body
+    aliases: [Sony A1 III, A1M3, ILCE-1M3]
+  - id: canon-r3m2
+    name: Canon EOS R3 Mark II
+    type: body
+    aliases: [Canon R3M2, R3 Mark II]

@@ -1,0 +1,3 @@
+# Locally maintained, auditable product events. Only add events with a public source URL
+# or a user-confirmed record; events do not alter prices by themselves.
+events: []
